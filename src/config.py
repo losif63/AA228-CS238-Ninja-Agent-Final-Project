@@ -1,0 +1,37 @@
+# Author: Jaduk Suh
+# Created: November 13th
+
+# Arena shape
+ARENA_WIDTH = 800
+ARENA_HEIGHT = 600
+
+# Rendering
+FPS = 60
+WINDOW_TITLE: str = "Ninja Dodge Game"
+
+# Colors (RGB tuples)
+COLOR_BG = (20, 20, 30)
+COLOR_BORDER = (100, 100, 120)
+COLOR_AGENT = (100, 200, 255)
+COLOR_ARROW = (255, 100, 100)
+COLOR_VISION = (100, 200, 255)
+
+# Agent properties
+AGENT_RADIUS = 15.0
+AGENT_SPEED = 5.0
+
+# Arrow properties
+ARROW_SPAWN_RATE = 0.1  # Probability per step
+ARROW_SPEED_MIN = 2.0
+ARROW_SPEED_MAX = 8.0
+ARROW_RADIUS = 8.0
+
+# Vision / Fog of War
+VISION_RADIUS = 150.0
+
+# Reward
+REWARD_PER_STEP = 1.0
+REWARD_COLLISION = -100.0
+REWARD_MIN_DIST_SCALE = 0.0  # Optional: negative reward for proximity
+
+
