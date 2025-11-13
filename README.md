@@ -1,2 +1,2 @@
-# AA228-CS238-Final-Project
+# AA228-CS238-Ninja-Agent-Final-Project
 
