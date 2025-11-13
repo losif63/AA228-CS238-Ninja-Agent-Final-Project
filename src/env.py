@@ -5,7 +5,7 @@ import pygame
 from objects import Agent, Arrow
 from typing import List, Optional, Dict, Tuple
 import random
-from utils import distance
+from utils import distance, spawn_arrow
 import math
 
 
@@ -62,7 +62,16 @@ class GameEnv:
         self.agent.move(dx, dy, cfg.ARENA_WIDTH, cfg.ARENA_HEIGHT)
         
         # TODO: Spawn new arrows
-        
+        if random.random() < cfg.ARROW_SPAWN_RATE:
+            x, y, vx, vy = spawn_arrow(
+                cfg.ARENA_WIDTH,
+                cfg.ARENA_HEIGHT,
+                cfg.ARROW_SPEED_MIN,
+                cfg.ARROW_SPEED_MAX,
+            )
+            self.arrows.append(Arrow(x, y, vx, vy, cfg.ARROW_RADIUS)
+)
+
         # Update arrows
         for arrow in self.arrows:
             arrow.update()
@@ -152,34 +161,24 @@ class GameEnv:
         for arrow in self.arrows:
             x, y = int(arrow.x), int(arrow.y)
             # Draw as a small triangle pointing in direction of motion
-            if abs(arrow.vx) < 0.1 and abs(arrow.vy) < 0.1:
-                # Stationary, draw as circle
-                pygame.draw.circle(
-                    self.screen,
-                    cfg.COLOR_ARROW,
-                    (x, y),
-                    int(arrow.radius)
-                )
-            else:
-                # Calculate angle from velocity
-                angle = math.atan2(arrow.vy, arrow.vx)
-                size = arrow.radius * 1.5
-                # Triangle pointing in velocity direction
-                # Tip of arrow at front, base at back
-                tip_x = x + size * math.cos(angle)
-                tip_y = y + size * math.sin(angle)
-                # Base points perpendicular to velocity
-                perp_angle = angle + math.pi / 2
-                base_x1 = x - size * 0.5 * math.cos(angle) + size * 0.3 * math.cos(perp_angle)
-                base_y1 = y - size * 0.5 * math.sin(angle) + size * 0.3 * math.sin(perp_angle)
-                base_x2 = x - size * 0.5 * math.cos(angle) - size * 0.3 * math.cos(perp_angle)
-                base_y2 = y - size * 0.5 * math.sin(angle) - size * 0.3 * math.sin(perp_angle)
-                points = [
-                    (int(tip_x), int(tip_y)),
-                    (int(base_x1), int(base_y1)),
-                    (int(base_x2), int(base_y2))
-                ]
-                pygame.draw.polygon(self.screen, cfg.COLOR_ARROW, points)
+            angle = math.atan2(arrow.vy, arrow.vx)
+            size = arrow.radius * 1.5
+            # Triangle pointing in velocity direction
+            # Tip of arrow at front, base at back
+            tip_x = x + size * math.cos(angle)
+            tip_y = y + size * math.sin(angle)
+            # Base points perpendicular to velocity
+            perp_angle = angle + math.pi / 2
+            base_x1 = x - size * 0.5 * math.cos(angle) + size * 0.3 * math.cos(perp_angle)
+            base_y1 = y - size * 0.5 * math.sin(angle) + size * 0.3 * math.sin(perp_angle)
+            base_x2 = x - size * 0.5 * math.cos(angle) - size * 0.3 * math.cos(perp_angle)
+            base_y2 = y - size * 0.5 * math.sin(angle) - size * 0.3 * math.sin(perp_angle)
+            points = [
+                (int(tip_x), int(tip_y)),
+                (int(base_x1), int(base_y1)),
+                (int(base_x2), int(base_y2))
+            ]
+            pygame.draw.polygon(self.screen, cfg.COLOR_ARROW, points)
         
         # Draw agent
         pygame.draw.circle(
