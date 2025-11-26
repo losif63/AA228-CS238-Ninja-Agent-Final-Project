@@ -83,20 +83,24 @@ class GameEnv:
             arrow for arrow in self.arrows
             if not arrow.is_out_of_bounds(cfg.ARENA_WIDTH, cfg.ARENA_HEIGHT)
         ]
-        
+
+        # Calculate reward 
         reward = cfg.REWARD_PER_STEP
         collision = False
+        agent_pos = self.agent.get_position()
         for arrow in self.arrows:
-            dist = distance(self.agent.get_position(), arrow.get_position())
-            man_dist = manhattan_distance(self.agent.get_position(), arrow.get_position())
-            if dist < cfg.VISION_RADIUS:
-                reward -= cfg.REWARD_MIN_DIST_ALPHA * (1 / man_dist)
+            dist = distance(agent_pos, arrow.get_position())
+            man_dist = manhattan_distance(agent_pos, arrow.get_position())
             
             if dist < cfg.AGENT_RADIUS + cfg.ARROW_RADIUS:
                 collision = True
                 reward = cfg.REWARD_COLLISION
                 self.done = True
                 break
+            
+            # Penalize proximity to arrows
+            if dist < cfg.VISION_RADIUS:
+                reward -= cfg.REWARD_MIN_DIST_ALPHA * (1 / man_dist)
         
         self.time_alive += 1
         
