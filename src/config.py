@@ -31,8 +31,15 @@ ARROW_MAX_NUMBER = 50 # Keep 50 arrows at a time
 VISION_RADIUS = 150.0
 
 # Reward
-REWARD_PER_STEP = 0.1
+REWARD_PER_STEP = 0.5
 REWARD_COLLISION = -10.0
 REWARD_MIN_DIST_ALPHA = 2.5  # Optional: negative reward for proximity
+REWARD_WALL = 0.1
+REWARD_ARROW_HEADING_TOWARDS = 0.1
 
+
+
+# Threshold
+WALL_THRESHOLD = 20
+COS_THRESHOLD = 0.7 # 0.9~1.0 heading toward agent | 0.5 ~ 0.7 partially heading toward agent | 
 

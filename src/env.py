@@ -40,6 +40,39 @@ class GameEnv:
         self.time_alive = 0
         self.done = False
 
+    # Check if it's near wall 
+    def is_near_wall(self, pos, wall_threshold=cfg.WALL_THRESHOLD):
+        x, y = pos
+        # arena bounds
+        W, H = cfg.ARENA_WIDTH, cfg.ARENA_HEIGHT
+
+        # If agent is too close to any wall, return True
+        if x < wall_threshold: 
+            return True
+        if x > W - wall_threshold:
+            return True
+        if y < wall_threshold:
+            return True
+        if y > H - wall_threshold:
+            return True
+        return False
+
+    def is_arrow_heading_towards(self, arrow, agent_pos, cos_threshold=cfg.COS_THRESHOLD):
+        ax, ay = agent_pos
+        x, y = arrow.get_position()
+        vx, vy = arrow.get_velocity()
+
+        vec_target = torch.tensor([ax - x, ay - y], dtype=torch.float32)
+        vec_arrow = torch.tensor([vx, vy], dtype=torch.float32)
+
+        if torch.norm(vec_target) < 1e-6:
+            return False
+
+        cos_sim = torch.dot(vec_target, vec_arrow) / (
+            torch.norm(vec_target) * torch.norm(vec_arrow)
+        )
+        return cos_sim > cos_threshold 
+
     # Return observation, reward, game done status, and game info
     def step(self, action: int) -> Tuple[Dict, float, bool, Dict]:
         if self.done:
@@ -90,7 +123,7 @@ class GameEnv:
         agent_pos = self.agent.get_position()
         for arrow in self.arrows:
             dist = distance(agent_pos, arrow.get_position())
-            man_dist = manhattan_distance(agent_pos, arrow.get_position())
+            man_dist = manhattan_distance(agent_pos, arrow.get_position()) 
             
             if dist < cfg.AGENT_RADIUS + cfg.ARROW_RADIUS:
                 collision = True
@@ -102,6 +135,33 @@ class GameEnv:
             if dist < cfg.VISION_RADIUS:
                 reward -= cfg.REWARD_MIN_DIST_ALPHA * (1 / man_dist)
         
+        ## 
+        # Calculate reward 
+        reward = cfg.REWARD_PER_STEP
+        collision = False
+        agent_pos = self.agent.get_position()
+        for arrow in self.arrows:
+            dist = distance(agent_pos, arrow.get_position())
+            man_dist = manhattan_distance(agent_pos, arrow.get_position()) 
+            
+            if dist < cfg.AGENT_RADIUS + cfg.ARROW_RADIUS:
+                collision = True
+                reward = cfg.REWARD_COLLISION
+                self.done = True
+                break
+            
+            # Penalize proximity to arrows
+            if dist < cfg.VISION_RADIUS:
+                reward -= cfg.REWARD_MIN_DIST_ALPHA * (1 / man_dist)
+
+            if self.is_arrow_heading_towards(arrow, agent_pos, cos_threshold=cfg.COS_THRESHOLD):
+                reward -= cfg.REWARD_ARROW_HEADING_TOWARDS
+
+        # penalize proximity to wall
+        if self.is_near_wall(agent_pos, cfg.WALL_THRESHOLD):
+            reward -= cfg.REWARD_WALL
+
+
         self.time_alive += 1
         
         obs = self.get_obs()
@@ -211,6 +271,9 @@ class GameEnv:
         
         pygame.display.flip()
         self.clock.tick(cfg.FPS)
+
+
+        
     
     def close(self):
         if self.initialized_render:
