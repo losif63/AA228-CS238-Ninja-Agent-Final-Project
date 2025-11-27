@@ -8,7 +8,7 @@ import random
 from src.utils import distance, manhattan_distance, spawn_arrow
 import math
 import torch
-
+import numpy as np
 
 class GameEnv:
     ACTIONS = ["STAY", "UP", "DOWN", "LEFT", "RIGHT"]
@@ -72,6 +72,23 @@ class GameEnv:
             torch.norm(vec_target) * torch.norm(vec_arrow)
         )
         return cos_sim > cos_threshold 
+    
+    def center_distance_penalty(self, agent_pos):
+        cx, cy = cfg.ARENA_WIDTH / 2, cfg.ARENA_HEIGHT / 2
+        ax, ay = agent_pos
+
+        # distance from center
+        dist = np.linalg.norm(np.array([ax - cx, ay - cy]))
+
+        # if inside safe zone → no penalty
+        if dist <= cfg.CENTER_RADIUS:
+            return 0.0
+        
+        # if outside → penalty proportional to how far outside
+        # excess_dist = dist - cfg.CENTER_RADIUS
+
+        # simple linear penalty:
+        return cfg.REWARD_CENTER_OUT
 
     # Return observation, reward, game done status, and game info
     def step(self, action: int) -> Tuple[Dict, float, bool, Dict]:
@@ -116,24 +133,6 @@ class GameEnv:
             arrow for arrow in self.arrows
             if not arrow.is_out_of_bounds(cfg.ARENA_WIDTH, cfg.ARENA_HEIGHT)
         ]
-
-        # Calculate reward 
-        reward = cfg.REWARD_PER_STEP
-        collision = False
-        agent_pos = self.agent.get_position()
-        for arrow in self.arrows:
-            dist = distance(agent_pos, arrow.get_position())
-            man_dist = manhattan_distance(agent_pos, arrow.get_position()) 
-            
-            if dist < cfg.AGENT_RADIUS + cfg.ARROW_RADIUS:
-                collision = True
-                reward = cfg.REWARD_COLLISION
-                self.done = True
-                break
-            
-            # Penalize proximity to arrows
-            if dist < cfg.VISION_RADIUS:
-                reward -= cfg.REWARD_MIN_DIST_ALPHA * (1 / man_dist)
         
         ## 
         # Calculate reward 
@@ -147,20 +146,14 @@ class GameEnv:
             if dist < cfg.AGENT_RADIUS + cfg.ARROW_RADIUS:
                 collision = True
                 reward = cfg.REWARD_COLLISION
-                self.done = True
+                self.done = True    
                 break
-            
+
             # Penalize proximity to arrows
             if dist < cfg.VISION_RADIUS:
                 reward -= cfg.REWARD_MIN_DIST_ALPHA * (1 / man_dist)
 
-            if self.is_arrow_heading_towards(arrow, agent_pos, cos_threshold=cfg.COS_THRESHOLD):
-                reward -= cfg.REWARD_ARROW_HEADING_TOWARDS
-
-        # penalize proximity to wall
-        if self.is_near_wall(agent_pos, cfg.WALL_THRESHOLD):
-            reward -= cfg.REWARD_WALL
-
+        reward -= self.center_distance_penalty(agent_pos)
 
         self.time_alive += 1
         

@@ -6,6 +6,7 @@ from src.env import GameEnv
 import pygame
 import argparse
 import torch
+from datetime import datetime
 
 # Select action based on epsilon-greedy
 def select_action(q_net, obs, epsilon):
@@ -78,9 +79,19 @@ def main(args):
               f"Total reward: {total_reward:.2f} | "
               f"Epsilon: {epsilon:.3f}")
     
+
     print("\nTraining finished.")
     env.close()
+    timestamp = datetime.now().strftime("%m%d_%H%M")
+    filename = (
+    f"results/qnet_{timestamp}_"
+    f"ep{episode+1}_steps{step}_"
+    f"reward{total_reward:.2f}_eps{epsilon:.3f}.pt"
+    )
 
+    torch.save(q_net.state_dict(), filename)
+    print(f"Saved model as {filename}")
+    
     torch.save(q_net.state_dict(), "q_network.pt")
 
 
@@ -89,4 +100,5 @@ if __name__ == "__main__":
     parser.add_argument('--render', '-r', action='store_true', default=False, help='Whether to render the training process or not')
     args = parser.parse_args()
     main(args)
+    
 
