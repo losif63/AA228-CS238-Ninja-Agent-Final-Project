@@ -32,19 +32,18 @@ def main(args):
     epsilon_min = 0.05
     epsilon_decay = 0.999
 
-    num_episodes = 1000
+    num_episodes = 10
     max_steps_per_episode = 3600
 
     ## new
     seq_len_max = 10
 
-    print("\n=== TRAINING Q-LSTM ===")
-    print(f"Training for {num_episodes} episodes...\n")
+    print(f"Q-Learning for {num_episodes} episodes...")
 
     for episode in range(num_episodes):
 
         env.reset()
-        total_reard = 0.0
+        total_reward = 0.0
         step = 0 
         done = False 
         obs = env.get_obs()  
@@ -56,76 +55,62 @@ def main(args):
         hidden = None   # reset hidden 
 
         while not done and step < max_steps_per_episode:
-
-            # ============================================
-            # 1) DETACH hidden at start of each step
-            #    (Otherwise gradient graph accumulates forever)
-            # ============================================
             if hidden is not None:
                 hidden = (hidden[0].detach(), hidden[1].detach())
 
-            # ============================================
-            # 2) Prepare sequence input
-            # ============================================
             if len(obs_seq) > seq_len_max:
                 obs_seq.pop(0)
 
             seq_input = torch.stack(obs_seq)   # [L, 82]
 
-            # ============================================
-            # 3) Select action
-            # ============================================
+
             optimizer.zero_grad()
+            # Select action with epsilon-greedy method
             q_values, action, hidden = select_action(q_net, seq_input, hidden, epsilon)
 
-            q_sa = q_values[action]
-
-            # ============================================
-            # 4) Step in environment
-            # ============================================
+            # Go one step
             next_obs, reward, done, info = env.step(action)
             total_reward += reward
             step += 1
 
+
+            # TD Learning
+            # print(q_values, obs)
+            q_sa = q_values[action]
+
             # append next_obs (clone/detach mandatory)
             obs_seq.append(next_obs.clone().detach())
 
+            # Render
             if args.render:
                 env.render(view=True)
 
-            # ============================================
-            # 5) Compute target (IMPORTANT FIX!)
-            #    -- next_seq_input uses obs_seq AFTER append
-            #    -- hidden=None (never reuse recurrent state)
-            # ============================================
             with torch.no_grad():
                 if done:
                     target = reward
                 else:
                     next_seq_input = torch.stack(obs_seq[-seq_len_max:])
-                    next_q, _ = q_net(next_seq_input, None)  # IMPORTANT FIX!!
+                    next_q, _ = q_net(next_seq_input, None)  
                     target = reward + gamma * torch.max(next_q)
 
-            # ============================================
-            # 6) Backpropagate
-            # ============================================
+
             loss = (target - q_sa) ** 2
             loss.backward()
             optimizer.step()
 
-        # ============================================
-        # 7) Epsilon decay
-        # ============================================
+        # Decay epsilon for epsilon-greedy
         epsilon = max(epsilon_min, epsilon * epsilon_decay)
 
         print(f"Episode {episode+1}/{num_episodes} | "
-              f"Reward={total_reward:.2f} | Steps={step} | Epsilon={epsilon:.3f}")
-
+              f"Steps: {step} | "
+              f"Total reward: {total_reward:.2f} | "
+              f"Epsilon: {epsilon:.3f}")
+        
     print("\nTraining finished.")
     env.close()
+
     torch.save(q_net.state_dict(), "q_network_LSTM_version.pt")
-    print("Model saved to q_network_LSTM_version.pt")
-    print("==============================================")
+
 
 
 if __name__ == "__main__":
