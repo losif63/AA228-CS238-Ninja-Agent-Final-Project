@@ -9,12 +9,14 @@ from src.utils import distance, manhattan_distance, spawn_arrow
 import math
 import torch
 
+SEED = 42
 
 class GameEnv:
     ACTIONS = ["STAY", "UP", "DOWN", "LEFT", "RIGHT"]
 
     def __init__(self):
         self.rng = random.Random()
+        self.rng.seed(SEED)
         self.initialized_render = False
         
         # Game state
@@ -29,16 +31,40 @@ class GameEnv:
         self.done: bool = False
     
     # Reset game
-    def reset(self, seed: Optional[int] = None):
-        if seed is not None:
-            self.rng.seed(seed)
-        
+    def reset(self):
         # Reset agent
         self.agent.x = cfg.ARENA_WIDTH / 2
         self.agent.y = cfg.ARENA_HEIGHT / 2
         self.arrows = []
         self.time_alive = 0
         self.done = False
+
+    def center_distance_penalty(self, agent_pos):
+        cx, cy = cfg.ARENA_WIDTH / 2, cfg.ARENA_HEIGHT / 2
+        ax, ay = agent_pos
+
+        # distance from center
+        dist = distance(agent_pos, (cx, cy))
+
+        # if inside safe zone → no penalty
+        if dist <= cfg.CENTER_RADIUS:
+            return 0.0
+        
+        # if outside → penalty proportional to how far outside
+        # excess_dist = dist - cfg.CENTER_RADIUS
+
+        # simple linear penalty:
+        return cfg.REWARD_CENTER_OUT
+
+    def center_distance_penalty_multiplier(self, agent_pos):
+        cx, cy = cfg.ARENA_WIDTH / 2, cfg.ARENA_HEIGHT / 2
+        max_dist = math.sqrt(cx ** 2 + cy ** 2)
+
+        # distance from center
+        dist = distance(agent_pos, (cx, cy))
+
+        # simple linear penalty:
+        return 1.0 - (dist / max_dist) * 0.7
 
     # Return observation, reward, game done status, and game info
     def step(self, action: int) -> Tuple[Dict, float, bool, Dict]:
@@ -101,6 +127,12 @@ class GameEnv:
             # Penalize proximity to arrows
             if dist < cfg.VISION_RADIUS:
                 reward -= cfg.REWARD_MIN_DIST_ALPHA * (1 / man_dist)
+        
+        # reward -= self.center_distance_penalty(agent_pos)
+        if reward >= 0:
+            reward *= self.center_distance_penalty_multiplier(agent_pos)
+        else:
+            reward /= self.center_distance_penalty_multiplier(agent_pos)
         
         self.time_alive += 1
         
