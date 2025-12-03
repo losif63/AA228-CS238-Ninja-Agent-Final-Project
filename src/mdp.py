@@ -54,16 +54,16 @@ class MDP():
 
                 # Normal states
                 # Calculate new state
-                new_x = (int)(x + speed * math.cos(angle * math.pi / 180))
-                new_y = (int)(y + speed * math.sin(angle * math.pi / 180))
+                new_x = round(x + speed * math.cos(angle * math.pi / 180))
+                new_y = round(y - speed * math.sin(angle * math.pi / 180))
                 if action == 'UP':
-                    new_y -= cfg.AGENT_SPEED
-                elif action == 'DOWN':
                     new_y += cfg.AGENT_SPEED
+                elif action == 'DOWN':
+                    new_y -= cfg.AGENT_SPEED
                 elif action == 'LEFT':
-                    new_x -= cfg.AGENT_SPEED
-                elif action == 'RIGHT':
                     new_x += cfg.AGENT_SPEED
+                elif action == 'RIGHT':
+                    new_x -= cfg.AGENT_SPEED
 
                 # Next state is out of vision range
                 if math.sqrt(new_x ** 2 + new_y ** 2) > self.vision_range:
@@ -96,17 +96,19 @@ class MDP():
             error = np.max(np.abs(self.value - new_value_star))
             print(f"Epoch {epoch} - Error {error}")
             self.value = new_value_star
+    
+    def calculate_qstar(self) -> None:
+        self.qstar = self.rewards + self.gamma * self.value[self.transition]
+
 
     def save_mdp(self) -> None:
         # Convert tuple keys to strings for JSON serialization
-        state_space_json = {str(k): v for k, v in self.state_space.items()}
-        with open('mdp_states.json', 'w') as f:
-            json.dump(state_space_json, f)
-        np.save('mdp_values.npy', self.value)
+        np.save('mdp_qstar.npy', self.qstar)
                 
 if __name__ == '__main__':
-    mdp = MDP(150)
+    mdp = MDP(cfg.VISION_RADIUS)
     mdp.value_iteration()
+    mdp.calculate_qstar()
     mdp.save_mdp()
                 
 
