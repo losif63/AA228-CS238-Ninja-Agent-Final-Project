@@ -51,17 +51,17 @@ class MDP():
             for action in self.action_space:
                 action_idx = self.action_space[action]
                 # Handle terminal states first
-                # Collision with arrow - terminal/absorbing state
-                if math.sqrt(x ** 2 + y ** 2) < cfg.AGENT_RADIUS + cfg.ARROW_RADIUS:
+                if speed == 0 and angle == 0:
                     self.transition[state_idx, action_idx] = state_idx
-                    self.rewards[state_idx, action_idx] = -50.0
-                    continue
-                # Arrow out of vision range - safe terminal state
-                elif speed == 0 and angle == 0:
-                    self.transition[state_idx, action_idx] = state_idx
-                    self.rewards[state_idx, action_idx] = 0.1
                     continue
 
+                # Collision state -> Transfer to terminal state 
+                elif math.sqrt(x ** 2 + y ** 2) < cfg.AGENT_RADIUS + cfg.ARROW_RADIUS:
+                    terminal_state = (0, 0, 0, 0)
+                    terminal_state_idx = self.state_space[terminal_state]
+                    self.transition[state_idx, action_idx] = terminal_state_idx
+                    self.rewards[state_idx, action_idx] = -50.0
+                    continue
                 # Normal states
                 # Calculate new state: arrow moves first, then agent moves
                 # Arrow position relative to agent: arrow moves in its direction
@@ -85,18 +85,18 @@ class MDP():
                     self.rewards[state_idx, action_idx] = 0.1
                 # Check if next state has collision
                 elif math.sqrt(new_x ** 2 + new_y ** 2) < cfg.AGENT_RADIUS + cfg.ARROW_RADIUS: 
-                    # Collision state - find or create terminal state
-                    # Use a collision marker state (same speed/angle but collision position)
-                    # For simplicity, transition to terminal state
-                    next_state = (0, 0, 0, 0)  # Use terminal state for collision
+                    next_state = (speed, angle, new_x, new_y)
                     next_state_idx = self.state_space[next_state]
                     self.transition[state_idx, action_idx] = next_state_idx
                     self.rewards[state_idx, action_idx] = -50.0
+                # Near collision -> Give small penalty
+                elif math.sqrt(new_x ** 2 + new_y ** 2) < (cfg.AGENT_RADIUS + cfg.ARROW_RADIUS) * 1.5:
+                    next_state = (speed, angle, new_x, new_y)
+                    next_state_idx = self.state_space[next_state]
+                    self.transition[state_idx, action_idx] = next_state_idx
+                    self.rewards[state_idx, action_idx] = -20.0 
                 else:
                     # Normal transition - need to find matching state
-                    # Round to ensure we find a valid state
-                    new_x = max(-self.vision_range, min(self.vision_range, new_x))
-                    new_y = max(-self.vision_range, min(self.vision_range, new_y))
                     # Check if within vision circle
                     if math.sqrt(new_x ** 2 + new_y ** 2) <= self.vision_range:
                         next_state = (speed, angle, new_x, new_y)

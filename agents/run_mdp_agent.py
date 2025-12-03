@@ -79,18 +79,18 @@ def main(args):
                     # State not found, use terminal state
                     cur_state_idx = state_space[(0, 0, 0, 0)]
                     q_values.append(qstar[cur_state_idx, :])
-            
             if len(q_values) > 0:
                 q_values = np.stack(q_values, axis=0)  # Shape: (num_arrows, num_actions)
-                # q_min = np.min(q_values, axis=0)  # Shape: (num_actions,)
-                # action = np.argmax(q_min)  # Scalar action index
-                q_sum = np.sum(q_values, axis=0)  # Shape: (num_actions,)
-                action = np.argmax(q_sum)  # Scalar action index
+                q_min = np.min(q_values, axis=0)  # Shape: (num_actions,)
+                action = np.argmax(q_min)  # Scalar action index
+                # q_sum = np.sum(q_values, axis=0)  # Shape: (num_actions,)
+                # action = np.argmax(q_sum)  # Scalar action index
             else:
                 # No valid arrows, use terminal state
                 cur_state_idx = state_space[(0, 0, 0, 0)]
                 q_values = qstar[cur_state_idx, :]
                 action = np.argmax(q_values)            
+                print(q_values)
 
         obs, _, done = env.step2(action)
         num_steps += 1

@@ -31,28 +31,28 @@ def spawn_arrow(
         x = random.uniform(0, arena_width)
         y = 0
         if agent_prob < toward_agent_prob:
-            angle = math.atan2(agent_y - y, agent_x - x) * 180.0 / math.pi  # Convert radians to degrees
+            angle = math.atan2(y - agent_y, agent_x - x) * 180.0 / math.pi  # Convert radians to degrees
         else:
             angle = random.random() * 120.0 + 210.0 # Arrow should point downward
     elif edge == 1:  # Right
         x = arena_width
         y = random.uniform(0, arena_height)
         if agent_prob < toward_agent_prob:
-            angle = math.atan2(agent_y - y, agent_x - x) * 180.0 / math.pi  # Convert radians to degrees
+            angle = math.atan2(y - agent_y, agent_x - x) * 180.0 / math.pi  # Convert radians to degrees
         else:
             angle = random.random() * 120.0 + 120.0 # Arrow shuld point left
     elif edge == 2:  # Bottom
         x = random.uniform(0, arena_width)
         y = arena_height
         if agent_prob < toward_agent_prob:
-            angle = math.atan2(agent_y - y, agent_x - x) * 180.0 / math.pi  # Convert radians to degrees
+            angle = math.atan2(y - agent_y, agent_x - x) * 180.0 / math.pi  # Convert radians to degrees
         else:
             angle = random.random() * 120.0 + 30.0 # Arrow should point up
     else:  # Left
         x = 0
         y = random.uniform(0, arena_height)
         if agent_prob < toward_agent_prob:
-            angle = math.atan2(agent_y - y, agent_x - x) * 180.0 / math.pi  # Convert radians to degrees
+            angle = math.atan2(y - agent_y, agent_x - x) * 180.0 / math.pi  # Convert radians to degrees
         else:
             angle = random.random() * 120.0 + 300.0 # Arrow should point right
     # Normalize angle to [0, 360)
