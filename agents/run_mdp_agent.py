@@ -32,7 +32,7 @@ def main(args):
                 for angle in range(0, 360, 10):
                     state_space[(speed, angle, x, y)] = idx
                     idx += 1
-    qstar = np.load('mdp_qstar.npy')
+    qstar = np.load('mdp_qstar_150.npy')
     num_steps = 0
     obs: List[Arrow] = env.get_obs2() 
     print(f"Running MDP agent...")

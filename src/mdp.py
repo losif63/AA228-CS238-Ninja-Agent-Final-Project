@@ -88,7 +88,7 @@ class MDP():
                     next_state = (speed, angle, new_x, new_y)
                     next_state_idx = self.state_space[next_state]
                     self.transition[state_idx, action_idx] = next_state_idx
-                    self.rewards[state_idx, action_idx] = -50.0
+                    self.rewards[state_idx, action_idx] = -100.0
                 # Near collision -> Give small penalty
                 elif math.sqrt(new_x ** 2 + new_y ** 2) < (cfg.AGENT_RADIUS + cfg.ARROW_RADIUS) * 1.5:
                     next_state = (speed, angle, new_x, new_y)
@@ -103,7 +103,7 @@ class MDP():
                         if next_state in self.state_space:
                             next_state_idx = self.state_space[next_state]
                             self.transition[state_idx, action_idx] = next_state_idx
-                            self.rewards[state_idx, action_idx] = 0.1
+                            self.rewards[state_idx, action_idx] = 0.2
                         else:
                             # State not in space, transition to terminal
                             next_state = (0, 0, 0, 0)
@@ -150,7 +150,7 @@ class MDP():
 
     def save_mdp(self) -> None:
         # Convert tuple keys to strings for JSON serialization
-        np.save('mdp_qstar.npy', self.qstar)
+        np.save(f'mdp_qstar_{self.vision_range}.npy', self.qstar)
                 
 if __name__ == '__main__':
     mdp = MDP(cfg.VISION_RADIUS)
