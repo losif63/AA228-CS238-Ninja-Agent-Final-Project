@@ -6,6 +6,7 @@ import pygame
 import argparse
 import torch
 from collections import deque
+from tqdm import tqdm
 
 SEED = 42
 
@@ -34,38 +35,12 @@ class ReplayBuffer():
         self.next_obs.append(next_o)
         return
     
-    def sample(self, batch_size, seq_len=120):
-
-        obs_batch = []
-        actions_batch = []
-        rewards_batch = []
-        next_obs_batch = []
-
-        max_start = len(self.obs) - seq_len-1
-        idxs = random.sample(range(max_start), batch_size)
-        
-        for start_idx in idxs:
-            end_idx = start_idx + seq_len
-
-            obs_seq = torch.stack([self.obs[i] for i in range(start_idx, end_idx)])
-            actions_seq = torch.tensor([self.actions[i] for i in range(start_idx, end_idx)], dtype=torch.long)
-            rewards_seq = torch.tensor([self.rewards[i] for i in range(start_idx, end_idx)], dtype=torch.float32)
-            next_obs_seq = torch.stack([self.next_obs[i] for i in range(start_idx, end_idx)])
-            
-            obs_batch.append(obs_seq)
-            actions_batch.append(actions_seq)
-            rewards_batch.append(rewards_seq)
-            next_obs_batch.append(next_obs_seq)
-            
-        obs_batch = torch.stack(obs_batch)            # batch, seq_len, 82
-        actions_batch = torch.stack(actions_batch)    # batch, seq_len
-        rewards_batch = torch.stack(rewards_batch)    # batch, seq_len
-        next_obs_batch = torch.stack(next_obs_batch)  # batch, seq_len, 82
-
-        # obs_batch = torch.stack([self.obs[i] for i in idxs])
-        # actions_batch = torch.tensor([self.actions[i] for i in idxs], dtype=torch.long)
-        # rewards_batch = torch.tensor([self.rewards[i] for i in idxs], dtype=torch.float32)
-        # next_obs_batch = torch.stack([self.next_obs[i] for i in idxs])
+    def sample(self, batch_size):
+        idxs = random.sample(range(len(self.obs)), batch_size)
+        obs_batch = torch.stack([self.obs[i] for i in idxs])
+        actions_batch = torch.tensor([self.actions[i] for i in idxs], dtype=torch.long)
+        rewards_batch = torch.tensor([self.rewards[i] for i in idxs], dtype=torch.float32)
+        next_obs_batch = torch.stack([self.next_obs[i] for i in idxs])
         return obs_batch, actions_batch, rewards_batch, next_obs_batch
         
 
@@ -98,14 +73,14 @@ def main(args):
     warmup_steps = 1000
     batch_size = 16
     
-    seq_len = 120 
+    seq_len = 60 
 
 
 
 
     print(f"Q-Learning for {num_episodes} episodes...")
     
-    for episode in range(num_episodes):
+    for episode in tqdm(range(num_episodes)):
         env.reset()
         total_reward = 0.0
         done = False
@@ -160,6 +135,7 @@ def main(args):
             next_obs_seq = torch.stack(next_seq_list)  # (1, seq_len, feature_dim)
 
             # buffer push
+            # buffer.push(obs, action, reward, next_obs)
             buffer.push(torch.stack(seq_list), action, reward, next_obs_seq)
 
             if len(buffer) >= warmup_steps:
@@ -167,15 +143,22 @@ def main(args):
 
                 # TD Learning
                 # Experience Replay
-                obs_b, act_b, rew_b, next_obs_b = buffer.sample(batch_size, seq_len=seq_len)
+                obs_b, act_b, rew_b, next_obs_b = buffer.sample(batch_size)
 
                 q_values, _ = q_net(obs_b)
-                q_sa = q_values.gather(2, act_b.unsqueeze(2)).squeeze(2)  # (batch_size, seq_len)
+                q_last = q_values[:, -1, :]  # (batch_size, num_actions) #$ last time step 만
+                q_sa = q_last.gather(1, act_b.unsqueeze(1)).squeeze(1)
 
+                # print(f'q_values.shape: {q_values.shape}')  # (batch_size, seq_len, num_actions)
+                # print(f'act_b.shape: {act_b.shape}')  # (batch_size,)
+                # q_sa = q_values.gather(2, act_b.unsqueeze(2)).squeeze(2)  # (batch_size, seq_len)
+                # q_sa = q_values.gather(2, act_b.unsqueeze(1).unsqueeze(2)).squeeze(2)  # (batch_size, seq_len)
                  # Target: r + gamma * max_a' Q(s', a')
                 with torch.no_grad():
                     q_next, _ = q_net(next_obs_b)
-                    max_q_next = q_next.max(dim=1).values  # (batch_size, seq_len)
+                    # max_q_next = q_next.max(dim=2).values  # (batch_size, seq_len)
+                    q_next_last = q_next[:, -1, :]  # (batch_size, num_actions) #얘도 last?
+                    max_q_next = q_next_last.max(dim=1).values  # (batch_size, seq_len)
                     targets = rew_b + gamma * max_q_next
                 
                 loss = torch.mean((targets - q_sa) ** 2)
