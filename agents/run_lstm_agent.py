@@ -36,7 +36,7 @@ def main(args):
 
         next_obs, reward, done = env.step(action)
         total_reward += reward
-        step += 1
+        step += 1 
         # Render
 
         if args.render:
