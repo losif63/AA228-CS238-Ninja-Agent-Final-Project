@@ -140,7 +140,7 @@ def main(args):
     print("\nTraining finished.")
     env.close()
 
-    torch.save(q_net.state_dict(), "q_network_300.pt")
+    torch.save(q_net.state_dict(), "q_network_225.pt")
 
 
 if __name__ == "__main__":
