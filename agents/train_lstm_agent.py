@@ -34,12 +34,38 @@ class ReplayBuffer():
         self.next_obs.append(next_o)
         return
     
-    def sample(self, batch_size):
-        idxs = random.sample(range(len(self.obs)), batch_size)
-        obs_batch = torch.stack([self.obs[i] for i in idxs])
-        actions_batch = torch.tensor([self.actions[i] for i in idxs], dtype=torch.long)
-        rewards_batch = torch.tensor([self.rewards[i] for i in idxs], dtype=torch.float32)
-        next_obs_batch = torch.stack([self.next_obs[i] for i in idxs])
+    def sample(self, batch_size, seq_len=120):
+
+        obs_batch = []
+        actions_batch = []
+        rewards_batch = []
+        next_obs_batch = []
+
+        max_start = len(self.obs) - seq_len-1
+        idxs = random.sample(range(max_start), batch_size)
+        
+        for start_idx in idxs:
+            end_idx = start_idx + seq_len
+
+            obs_seq = torch.stack([self.obs[i] for i in range(start_idx, end_idx)])
+            actions_seq = torch.tensor([self.actions[i] for i in range(start_idx, end_idx)], dtype=torch.long)
+            rewards_seq = torch.tensor([self.rewards[i] for i in range(start_idx, end_idx)], dtype=torch.float32)
+            next_obs_seq = torch.stack([self.next_obs[i] for i in range(start_idx, end_idx)])
+            
+            obs_batch.append(obs_seq)
+            actions_batch.append(actions_seq)
+            rewards_batch.append(rewards_seq)
+            next_obs_batch.append(next_obs_seq)
+            
+        obs_batch = torch.stack(obs_batch)            # batch, seq_len, 82
+        actions_batch = torch.stack(actions_batch)    # batch, seq_len
+        rewards_batch = torch.stack(rewards_batch)    # batch, seq_len
+        next_obs_batch = torch.stack(next_obs_batch)  # batch, seq_len, 82
+
+        # obs_batch = torch.stack([self.obs[i] for i in idxs])
+        # actions_batch = torch.tensor([self.actions[i] for i in idxs], dtype=torch.long)
+        # rewards_batch = torch.tensor([self.rewards[i] for i in idxs], dtype=torch.float32)
+        # next_obs_batch = torch.stack([self.next_obs[i] for i in idxs])
         return obs_batch, actions_batch, rewards_batch, next_obs_batch
         
 
@@ -72,6 +98,11 @@ def main(args):
     warmup_steps = 1000
     batch_size = 16
     
+    seq_len = 120 
+
+
+
+
     print(f"Q-Learning for {num_episodes} episodes...")
     
     for episode in range(num_episodes):
@@ -81,13 +112,34 @@ def main(args):
         step = 0
         hidden = None
 
-        obs = env.get_obs().unsqueeze(0).unsqueeze(0)
+
+        obs_lst = []
+        obs = env.get_obs()#.unsqueeze(0).unsqueeze(0)
+        # print(f'Initial obs.shape: {obs.shape}')
+        obs_lst.append(obs)
+
 
         while not done and step < max_steps_per_episode:
-            # Select action with epsilon-greedy method
-            q_values, action, hidden = select_action(q_net, obs, epsilon, hidden)
 
-            # Go one step
+            # inital point
+            if len(obs_lst) < seq_len:
+                pad =[obs_lst[0]] * (seq_len - len(obs_lst))
+                seq_list = pad + obs_lst
+            else:
+                seq_list = obs_lst[-seq_len:]
+            
+            obs_seq = torch.stack(seq_list).unsqueeze(0)  # (1, seq_len, feature_dim)
+            # print(f'obs_seq.shape: {obs_seq.shape}')
+
+            with torch.no_grad():
+                q_values, hidden = q_net(obs_seq, hidden)
+            # select_action
+            if random.random() < epsilon:
+                action = random.randint(0, 4)
+            else:
+                action = torch.argmax(q_values[:, -1, :]).item()
+            
+
             next_obs, reward, done = env.step(action)
             total_reward += reward
             step += 1
@@ -95,31 +147,81 @@ def main(args):
             # Render
             if args.render:
                 env.render(view=True)
+            
+            obs_lst.append(next_obs)
+            # print(f'next_obs.shape: {next_obs.shape}')
+            # next seq
 
-            next_obs = next_obs.unsqueeze(0).unsqueeze(0)
+            if len(obs_lst) < seq_len:
+                pad =[obs_lst[0]] * (seq_len - len(obs_lst))
+                next_seq_list = pad + obs_lst
+            else:
+                next_seq_list = obs_lst[-seq_len:]
+            next_obs_seq = torch.stack(next_seq_list)  # (1, seq_len, feature_dim)
 
-            buffer.push(obs.squeeze(0), action, reward, next_obs.squeeze(0))
-            obs = next_obs
+            # buffer push
+            buffer.push(torch.stack(seq_list), action, reward, next_obs_seq)
 
             if len(buffer) >= warmup_steps:
                 optimizer.zero_grad()
 
                 # TD Learning
                 # Experience Replay
-                obs_b, act_b, rew_b, next_obs_b = buffer.sample(batch_size)
+                obs_b, act_b, rew_b, next_obs_b = buffer.sample(batch_size, seq_len=seq_len)
+
                 q_values, _ = q_net(obs_b)
-                q_sa = q_values.gather(1, act_b.unsqueeze(1)).squeeze(1)
+                q_sa = q_values.gather(2, act_b.unsqueeze(2)).squeeze(2)  # (batch_size, seq_len)
+
                  # Target: r + gamma * max_a' Q(s', a')
                 with torch.no_grad():
                     q_next, _ = q_net(next_obs_b)
-                    max_q_next = q_next.max(dim=1).values
+                    max_q_next = q_next.max(dim=1).values  # (batch_size, seq_len)
                     targets = rew_b + gamma * max_q_next
                 
                 loss = torch.mean((targets - q_sa) ** 2)
                 loss.backward()
                 optimizer.step()
-        # Decay epsilon for epsilon-greedy
+
+        obs = next_obs
         epsilon = max(epsilon_min, epsilon * epsilon_decay)
+
+
+        #     # Select action with epsilon-greedy method
+        #     q_values, action, hidden = select_action(q_net, obs, epsilon, hidden)
+
+        #     # Go one step
+        #     next_obs, reward, done = env.step(action)
+        #     total_reward += reward
+        #     step += 1
+
+        #     # Render
+        #     if args.render:
+        #         env.render(view=True)
+
+        #     next_obs = next_obs.unsqueeze(0).unsqueeze(0)
+
+        #     buffer.push(obs.squeeze(0), action, reward, next_obs.squeeze(0))
+        #     obs = next_obs
+
+        #     if len(buffer) >= warmup_steps:
+        #         optimizer.zero_grad()
+
+        #         # TD Learning
+        #         # Experience Replay
+        #         obs_b, act_b, rew_b, next_obs_b = buffer.sample(batch_size)
+        #         q_values, _ = q_net(obs_b)
+        #         q_sa = q_values.gather(1, act_b.unsqueeze(1)).squeeze(1)
+        #          # Target: r + gamma * max_a' Q(s', a')
+        #         with torch.no_grad():
+        #             q_next, _ = q_net(next_obs_b)
+        #             max_q_next = q_next.max(dim=1).values
+        #             targets = rew_b + gamma * max_q_next
+                
+        #         loss = torch.mean((targets - q_sa) ** 2)
+        #         loss.backward()
+        #         optimizer.step()
+        # # Decay epsilon for epsilon-greedy
+        # epsilon = max(epsilon_min, epsilon * epsilon_decay)
     
         print(f"Episode {episode+1}/{num_episodes} | "
               f"Steps: {step} | "
@@ -129,7 +231,7 @@ def main(args):
     print("\nTraining finished.")
     env.close()
 
-    torch.save(q_net.state_dict(), f"q_lstm_network_225.pt")
+    torch.save(q_net.state_dict(), f"q_lstm_network_150.pt")
 
 
 if __name__ == "__main__":

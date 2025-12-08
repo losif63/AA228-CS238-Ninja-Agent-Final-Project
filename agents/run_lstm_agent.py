@@ -20,7 +20,7 @@ def main(args):
     env.reset()
 
     q_net = Q_LSTM()
-    q_net.load_state_dict(torch.load("q_lstm_network_300.pt"))
+    q_net.load_state_dict(torch.load("q_lstm_network_225.pt"))
     q_net.eval()
 
     total_reward = 0.0

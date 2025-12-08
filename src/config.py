@@ -28,7 +28,7 @@ ARROW_RADIUS = 8.0
 ARROW_MAX_NUMBER = 50 # Keep 50 arrows at a time
 
 # Vision / Fog of War
-VISION_RADIUS = 225
+VISION_RADIUS = 150
 
 # Reward
 REWARD_PER_STEP = 0.1

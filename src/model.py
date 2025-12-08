@@ -47,8 +47,11 @@ class Q_LSTM(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x, hidden=None):
+        # print(f'Input x.shape: {x.shape}')  # Debugging line
         x = self.relu(self.linear1(x))
-        out, hidden = self.lstm(x, hidden)
-        last = out[:, -1, :]
-        q_values = self.head(last)
+        out, hidden = self.lstm(x, hidden) # out: (batch, seq_len, hidden_size)
+        # last = out[:, -1, :] 
+        # q_values = self.head(last)
+
+        q_values = self.head(out)  # batch, seq_len, action 
         return q_values, hidden
